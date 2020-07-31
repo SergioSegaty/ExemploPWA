@@ -15,31 +15,55 @@
  * See the License for the specific language governing permissions and
  * limitations under the License
  */
-'use strict';
+"use strict";
 
 // CODELAB: Update cache names any time any of the cached files change.
-const CACHE_NAME = 'static-cache-v1';
+const CACHE_NAME = "static-cache-v1";
 
 // CODELAB: Add list of files to cache here.
-const FILES_TO_CACHE = [
-];
+const FILES_TO_CACHE = ["/offline.hteml"];
 
-self.addEventListener('install', (evt) => {
-  console.log('[ServiceWorker] Install');
-  // CODELAB: Precache static resources here.
-
-  self.skipWaiting();
+self.addEventListener("install", evt => {
+    console.log("[ServiceWorker] Install");
+    // CODELAB: Precache static resources here.
+    evt.waitUntil(
+        caches.open(CACHE_NAME).then(cache => {
+            console.log("[ServiceWorker] Pre-caching offline page");
+        })
+    );
+    self.skipWaiting();
 });
 
-self.addEventListener('activate', (evt) => {
-  console.log('[ServiceWorker] Activate');
-  // CODELAB: Remove previous cached data from disk.
-
-  self.clients.claim();
+self.addEventListener("activate", evt => {
+    console.log("[ServiceWorker] Activate");
+    // CODELAB: Remove previous cached data from disk.
+    evt.waitUntil(
+        caches.keys().then(keylist => {
+            return Promise.all(
+                keyList.map(key => {
+                    if (key !== CACHE_NAME) {
+                        console.log("[ServiceWorker] Removing old cache", key);
+                        return caches.delete(key);
+                    }
+                })
+            );
+        })
+    );
+    self.clients.claim();
 });
 
-self.addEventListener('fetch', (evt) => {
-  console.log('[ServiceWorker] Fetch', evt.request.url);
-  // CODELAB: Add fetch event handler here.
-
+self.addEventListener("fetch", evt => {
+    console.log("[ServiceWorker] Fetch", evt.request.url);
+    // CODELAB: Add fetch event handler here.
+    if (evt.request.mode !== "navigate") {
+        //Not a page navigation? Bail
+        return;
+    }
+    evt.respondWith(
+        fetch(evt.request).catch(() => {
+            return caches.open(CACHE_NAME).then(cache => {
+                return cache.match("offline.html");
+            });
+        })
+    );
 });
